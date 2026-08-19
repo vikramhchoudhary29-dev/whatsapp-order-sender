@@ -1,0 +1,61 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String   @unique
+  active    Boolean  @default(true)
+  optedIn   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messageLogs MessageLog[]
+
+  @@index([active])
+  @@index([optedIn])
+}
+
+model Settings {
+  id             String   @id @default(cuid())
+  morningEnabled Boolean  @default(true)
+  morningTime    String   @default("09:00")
+  eveningEnabled Boolean  @default(true)
+  eveningTime    String   @default("18:00")
+  timezone       String   @default("Asia/Kolkata")
+
+  template1Name     String @default("")
+  template1Language String @default("en_US")
+
+  template2Name     String @default("")
+  template2Language String @default("en_US")
+
+  selectedTemplate Int @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model MessageLog {
+  id            String    @id @default(cuid())
+  customerId    String
+  scheduledFor  DateTime
+  sentAt        DateTime?
+  status        String
+  templateUsed  String?
+  metaMessageId String?
+  errorMessage  String?
+  createdAt     DateTime  @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([scheduledFor])
+  @@index([status])
+}
