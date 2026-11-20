@@ -44,6 +44,10 @@ export async function runReminderSlot(slot: ReminderSlot) {
     throw new Error("Application settings are not configured.");
   }
 
+  if (!settings.remindersEnabled) {
+    return { slot, skipped: true, reason: "All automated reminders are paused.", total: 0, sent: 0, failed: 0, duplicates: 0 };
+  }
+
   if ((slot === "morning" && !settings.morningEnabled) || (slot === "evening" && !settings.eveningEnabled)) {
     return { slot, skipped: true, reason: "This reminder is disabled.", total: 0, sent: 0, failed: 0, duplicates: 0 };
   }

@@ -24,6 +24,7 @@ model Customer {
 
 model Settings {
   id             String   @id @default(cuid())
+  remindersEnabled Boolean @default(true)
   morningEnabled Boolean  @default(true)
   morningTime    String   @default("10:00")
   eveningEnabled Boolean  @default(true)

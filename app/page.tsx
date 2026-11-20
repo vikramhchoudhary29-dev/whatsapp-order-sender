@@ -18,6 +18,7 @@ import {
   Pause,
   Play,
   Plus,
+  Power,
   Search,
   Send,
   Settings,
@@ -39,6 +40,7 @@ type Customer = {
 
 type SettingsData = {
   id: string;
+  remindersEnabled: boolean;
   morningEnabled: boolean;
   morningTime: string;
   eveningEnabled: boolean;
@@ -677,6 +679,58 @@ export default function Home() {
     }
   }
 
+  async function updateReminderSettings(
+    changes: Partial<
+      Pick<
+        SettingsData,
+        "remindersEnabled" | "morningEnabled" | "eveningEnabled"
+      >
+    >
+  ) {
+    if (!settings) {
+      return;
+    }
+
+    const nextSettings = { ...settings, ...changes };
+
+    try {
+      setSavingSettings(true);
+
+      const response = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(nextSettings),
+      });
+
+      const updated = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          updated.error || "Failed to update reminder schedule."
+        );
+      }
+
+      setSettings(updated);
+      setSettingsForm(updated);
+
+      showToast(
+        "success",
+        updated.remindersEnabled
+          ? "Reminder schedule updated."
+          : "All automatic reminders are paused."
+      );
+    } catch (error) {
+      showToast(
+        "error",
+        error instanceof Error
+          ? error.message
+          : "Failed to update reminder schedule."
+      );
+    } finally {
+      setSavingSettings(false);
+    }
+  }
+
   async function sendNow() {
     const confirmed = window.confirm(
       `Send ${templateLabel()} now to ${activeCustomers.length} active, opted-in customers?`
@@ -738,11 +792,11 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900">
-      <header className="border-b border-slate-200 bg-white">
+    <main className="min-h-screen bg-[#f7faf8] text-slate-900">
+      <header className="border-b border-emerald-100 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-600 text-white">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-green-700 text-white shadow-lg shadow-emerald-200">
               <MessageCircle
                 size={21}
               />
@@ -759,16 +813,25 @@ export default function Home() {
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() =>
-              setShowSettings(true)
-            }
-            className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            <Settings size={17} />
-            Settings
-          </button>
+          <div className="flex items-center gap-3">
+            <a
+              href="https://arvikdigital.in"
+              target="_blank"
+              rel="noreferrer"
+              className="hidden text-right text-xs leading-4 text-slate-400 transition hover:text-emerald-700 sm:block"
+            >
+              Designed & developed by<br />
+              <span className="font-semibold text-slate-600">arvikdigital.in</span>
+            </a>
+            <button
+              type="button"
+              onClick={() => setShowSettings(true)}
+              className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-emerald-200 hover:bg-emerald-50"
+            >
+              <Settings size={17} />
+              Settings
+            </button>
+          </div>
         </div>
       </header>
 
@@ -835,6 +898,44 @@ export default function Home() {
               />
             </div>
 
+            <div className="mt-6 overflow-hidden rounded-2xl border border-emerald-100 bg-gradient-to-r from-emerald-50 to-white p-5 shadow-sm">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
+                      settings?.remindersEnabled ?? true
+                        ? "bg-emerald-600 text-white"
+                        : "bg-slate-200 text-slate-500"
+                    }`}
+                  >
+                    <Power size={20} />
+                  </div>
+                  <div>
+                    <p className="font-semibold">Automatic reminders</p>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {settings?.remindersEnabled ?? true
+                        ? "Schedules are running in the cloud."
+                        : "All scheduled sends are paused. Send Now still works."}
+                    </p>
+                  </div>
+                </div>
+
+                <ToggleButton
+                  enabled={settings?.remindersEnabled ?? true}
+                  disabled={savingSettings}
+                  enabledLabel="On — pause all"
+                  disabledLabel="Off — enable all"
+                  onClick={() =>
+                    void updateReminderSettings({
+                      remindersEnabled: !(
+                        settings?.remindersEnabled ?? true
+                      ),
+                    })
+                  }
+                />
+              </div>
+            </div>
+
             <div className="mt-6 grid gap-4 lg:grid-cols-2">
               <ScheduleCard
                 title="Morning"
@@ -842,9 +943,13 @@ export default function Home() {
                   settings?.morningTime ||
                   "10:00"
                 }
-                enabled={
-                  settings?.morningEnabled ??
-                  true
+                enabled={(settings?.remindersEnabled ?? true) && (settings?.morningEnabled ?? true)}
+                actionEnabled={settings?.morningEnabled ?? true}
+                disabled={savingSettings || !(settings?.remindersEnabled ?? true)}
+                onToggle={() =>
+                  void updateReminderSettings({
+                    morningEnabled: !(settings?.morningEnabled ?? true),
+                  })
                 }
               />
 
@@ -854,9 +959,13 @@ export default function Home() {
                   settings?.eveningTime ||
                   "17:00"
                 }
-                enabled={
-                  settings?.eveningEnabled ??
-                  true
+                enabled={(settings?.remindersEnabled ?? true) && (settings?.eveningEnabled ?? true)}
+                actionEnabled={settings?.eveningEnabled ?? true}
+                disabled={savingSettings || !(settings?.remindersEnabled ?? true)}
+                onToggle={() =>
+                  void updateReminderSettings({
+                    eveningEnabled: !(settings?.eveningEnabled ?? true),
+                  })
                 }
               />
             </div>
@@ -905,7 +1014,7 @@ export default function Home() {
                   </p>
 
                   <p className="mt-1 text-sm text-slate-500">
-                    Template 1 sends automatically in the morning. Template 2 sends automatically in the evening. The web dashboard does not need to stay open, but the local app must be running.
+                    Template 1 sends automatically at 10:00 AM and Template 2 at 5:00 PM. This cloud schedule runs even when your computer is off.
                   </p>
 
                   <p className="mt-3 text-xs font-medium text-slate-400">
@@ -1518,12 +1627,36 @@ Priya,919812345678,yes,yes`}
             <div className="space-y-6">
               <div>
                 <p className="mb-3 text-sm font-semibold">
-                  Schedule
+                  Reminder controls
                 </p>
 
                 <p className="mb-3 text-xs text-slate-500">
-                  Windows Task Scheduler is configured for 10:00 AM and 5:00 PM.
+                  These cloud schedules run at 10:00 AM and 5:00 PM (Asia/Kolkata). Turn off either time, or pause all automatic reminders.
                 </p>
+
+                <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
+                  <label className="flex cursor-pointer items-center justify-between gap-3">
+                    <span>
+                      <span className="block text-sm font-semibold text-amber-950">
+                        Automatic reminders
+                      </span>
+                      <span className="block text-xs text-amber-800">
+                        Turn this off to stop both schedules completely.
+                      </span>
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={settingsForm.remindersEnabled}
+                      onChange={(event) =>
+                        setSettingsForm({
+                          ...settingsForm,
+                          remindersEnabled: event.target.checked,
+                        })
+                      }
+                      className="h-5 w-5 accent-emerald-600"
+                    />
+                  </label>
+                </div>
 
                 <div className="space-y-3">
                   <ScheduleSetting
@@ -1751,13 +1884,19 @@ function ScheduleCard({
   title,
   time,
   enabled,
+  actionEnabled,
+  disabled,
+  onToggle,
 }: {
   title: string;
   time: string;
   enabled: boolean;
+  actionEnabled: boolean;
+  disabled: boolean;
+  onToggle: () => void;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-medium text-slate-500">
@@ -1781,7 +1920,51 @@ function ScheduleCard({
             : "Disabled"}
         </span>
       </div>
+
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={onToggle}
+        className={`mt-5 w-full rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+          actionEnabled
+            ? "bg-slate-900 text-white hover:bg-slate-700"
+            : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+        }`}
+      >
+        {actionEnabled
+          ? `Disable ${title.toLowerCase()} reminder`
+          : `Enable ${title.toLowerCase()} reminder`}
+      </button>
     </div>
+  );
+}
+
+function ToggleButton({
+  enabled,
+  disabled,
+  enabledLabel,
+  disabledLabel,
+  onClick,
+}: {
+  enabled: boolean;
+  disabled: boolean;
+  enabledLabel: string;
+  disabledLabel: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+        enabled
+          ? "bg-slate-900 text-white hover:bg-slate-700"
+          : "bg-emerald-600 text-white hover:bg-emerald-700"
+      }`}
+    >
+      {enabled ? enabledLabel : disabledLabel}
+    </button>
   );
 }
 

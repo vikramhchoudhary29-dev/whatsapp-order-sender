@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 const DEFAULT_SETTINGS = {
+  remindersEnabled: true,
   morningEnabled: true,
   morningTime: "10:00",
   eveningEnabled: true,
@@ -46,6 +47,11 @@ export async function PUT(request: Request) {
     const existingSettings = await prisma.settings.findFirst();
 
     const data = {
+      remindersEnabled:
+        typeof body.remindersEnabled === "boolean"
+          ? body.remindersEnabled
+          : DEFAULT_SETTINGS.remindersEnabled,
+
       morningEnabled:
         typeof body.morningEnabled === "boolean"
           ? body.morningEnabled
