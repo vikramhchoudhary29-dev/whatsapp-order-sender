@@ -3,9 +3,9 @@ import { prisma } from "@/lib/prisma";
 
 const DEFAULT_SETTINGS = {
   morningEnabled: true,
-  morningTime: "09:00",
+  morningTime: "10:00",
   eveningEnabled: true,
-  eveningTime: "18:00",
+  eveningTime: "17:00",
   timezone: "Asia/Kolkata",
   template1Name: "",
   template1Language: "en_US",

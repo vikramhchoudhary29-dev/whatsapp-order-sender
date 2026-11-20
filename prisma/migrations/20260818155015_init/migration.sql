@@ -15,9 +15,9 @@ CREATE TABLE "Customer" (
 CREATE TABLE "Settings" (
     "id" TEXT NOT NULL,
     "morningEnabled" BOOLEAN NOT NULL DEFAULT true,
-    "morningTime" TEXT NOT NULL DEFAULT '09:00',
+    "morningTime" TEXT NOT NULL DEFAULT '10:00',
     "eveningEnabled" BOOLEAN NOT NULL DEFAULT true,
-    "eveningTime" TEXT NOT NULL DEFAULT '18:00',
+    "eveningTime" TEXT NOT NULL DEFAULT '17:00',
     "timezone" TEXT NOT NULL DEFAULT 'Asia/Kolkata',
     "template1Name" TEXT NOT NULL DEFAULT '',
     "template1Language" TEXT NOT NULL DEFAULT 'en_US',

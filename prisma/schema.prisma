@@ -25,9 +25,9 @@ model Customer {
 model Settings {
   id             String   @id @default(cuid())
   morningEnabled Boolean  @default(true)
-  morningTime    String   @default("09:00")
+  morningTime    String   @default("10:00")
   eveningEnabled Boolean  @default(true)
-  eveningTime    String   @default("18:00")
+  eveningTime    String   @default("17:00")
   timezone       String   @default("Asia/Kolkata")
 
   template1Name     String @default("")
@@ -45,6 +45,7 @@ model Settings {
 model MessageLog {
   id            String    @id @default(cuid())
   customerId    String
+  scheduleKey   String?
   scheduledFor  DateTime
   sentAt        DateTime?
   status        String
@@ -58,4 +59,5 @@ model MessageLog {
   @@index([customerId])
   @@index([scheduledFor])
   @@index([status])
+  @@unique([customerId, scheduleKey])
 }

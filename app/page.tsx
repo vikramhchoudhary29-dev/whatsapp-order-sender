@@ -3,6 +3,7 @@
 import {
   ChangeEvent,
   FormEvent,
+  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -10,16 +11,13 @@ import {
 import Papa from "papaparse";
 import {
   Check,
-  ChevronDown,
   Clock3,
   FileSpreadsheet,
   MessageCircle,
   MoreHorizontal,
   Pause,
-  Pencil,
   Play,
   Plus,
-  RefreshCw,
   Search,
   Send,
   Settings,
@@ -130,9 +128,8 @@ export default function Home() {
   const [savingSettings, setSavingSettings] =
     useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  const [sendingNow, setSendingNow] =
+    useState(false);
 
   useEffect(() => {
     if (!toast) {
@@ -146,10 +143,8 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [toast]);
 
-  async function loadData() {
+  const loadData = useCallback(async () => {
     try {
-      setLoading(true);
-
       const [customersResponse, settingsResponse] =
         await Promise.all([
           fetch("/api/customers"),
@@ -187,7 +182,15 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadData();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [loadData]);
 
   function showToast(
     type: "success" | "error",
@@ -674,6 +677,43 @@ export default function Home() {
     }
   }
 
+  async function sendNow() {
+    const confirmed = window.confirm(
+      `Send ${templateLabel()} now to ${activeCustomers.length} active, opted-in customers?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setSendingNow(true);
+
+      const response = await fetch("/api/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ all: true }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Could not send messages.");
+      }
+
+      showToast(
+        result.failed > 0 ? "error" : "success",
+        `${result.sent} sent${result.failed > 0 ? `, ${result.failed} failed` : ""}.`
+      );
+    } catch (error) {
+      showToast(
+        "error",
+        error instanceof Error ? error.message : "Could not send messages."
+      );
+    } finally {
+      setSendingNow(false);
+    }
+  }
+
   function formatPhone(phone: string) {
     if (
       phone.startsWith("91") &&
@@ -800,7 +840,7 @@ export default function Home() {
                 title="Morning"
                 time={
                   settings?.morningTime ||
-                  "09:00"
+                  "10:00"
                 }
                 enabled={
                   settings?.morningEnabled ??
@@ -812,7 +852,7 @@ export default function Home() {
                 title="Evening"
                 time={
                   settings?.eveningTime ||
-                  "18:00"
+                  "17:00"
                 }
                 enabled={
                   settings?.eveningEnabled ??
@@ -829,8 +869,7 @@ export default function Home() {
                   </p>
 
                   <p className="mt-1 text-sm text-slate-500">
-                    {activeCustomers.length} active,
-                    opted-in customers will receive the selected template.
+                    {activeCustomers.length} active, opted-in customers will receive the selected template.
                   </p>
 
                   <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
@@ -843,16 +882,12 @@ export default function Home() {
 
                 <button
                   type="button"
-                  onClick={() =>
-                    showToast(
-                      "success",
-                      "Send Now will be connected to Meta in the next phase."
-                    )
-                  }
-                  className="flex items-center justify-center gap-2 rounded-xl bg-green-600 px-5 py-3 text-sm font-semibold text-white hover:bg-green-700"
+                  onClick={sendNow}
+                  disabled={sendingNow || activeCustomers.length === 0}
+                  className="flex items-center justify-center gap-2 rounded-xl bg-green-600 px-5 py-3 text-sm font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Send size={17} />
-                  Send Now
+                  {sendingNow ? "Sending..." : "Send Now"}
                 </button>
               </div>
             </div>
@@ -870,7 +905,7 @@ export default function Home() {
                   </p>
 
                   <p className="mt-1 text-sm text-slate-500">
-                    The background scheduler will send the selected approved template at the configured times. The web dashboard does not need to stay open.
+                    Template 1 sends automatically in the morning. Template 2 sends automatically in the evening. The web dashboard does not need to stay open, but the local app must be running.
                   </p>
 
                   <p className="mt-3 text-xs font-medium text-slate-400">
@@ -1486,6 +1521,10 @@ Priya,919812345678,yes,yes`}
                   Schedule
                 </p>
 
+                <p className="mb-3 text-xs text-slate-500">
+                  Windows Task Scheduler is configured for 10:00 AM and 5:00 PM.
+                </p>
+
                 <div className="space-y-3">
                   <ScheduleSetting
                     label="Morning"
@@ -1501,15 +1540,6 @@ Priya,919812345678,yes,yes`}
                       setSettingsForm({
                         ...settingsForm,
                         morningEnabled:
-                          value,
-                      })
-                    }
-                    onTimeChange={(
-                      value
-                    ) =>
-                      setSettingsForm({
-                        ...settingsForm,
-                        morningTime:
                           value,
                       })
                     }
@@ -1529,15 +1559,6 @@ Priya,919812345678,yes,yes`}
                       setSettingsForm({
                         ...settingsForm,
                         eveningEnabled:
-                          value,
-                      })
-                    }
-                    onTimeChange={(
-                      value
-                    ) =>
-                      setSettingsForm({
-                        ...settingsForm,
-                        eveningTime:
                           value,
                       })
                     }
@@ -1769,16 +1790,12 @@ function ScheduleSetting({
   enabled,
   time,
   onEnabledChange,
-  onTimeChange,
 }: {
   label: string;
   enabled: boolean;
   time: string;
   onEnabledChange: (
     value: boolean
-  ) => void;
-  onTimeChange: (
-    value: string
   ) => void;
 }) {
   return (
@@ -1805,12 +1822,8 @@ function ScheduleSetting({
       <input
         type="time"
         value={time}
-        onChange={(event) =>
-          onTimeChange(
-            event.target.value
-          )
-        }
-        className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+        disabled
+        className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-500"
       />
     </div>
   );
